@@ -1,42 +1,56 @@
 <?php
-
-// Vérifier si le bouton d'envoi a été pressé
-if (isset($_POST['envoyer'])) {
-    // Vérifier si le nom du fichier et le fichier lui-même ont bien été reçus
+// Fonction pour gérer l'upload de fichiers
+function handleUpload() {
     if (!empty($_POST['nom']) && !empty($_FILES['fichier']['name'])) {
-        // Vérifier s'il n'y a pas d'erreur avec le fichier uploadé
         if ($_FILES['fichier']['error'] === 0) {
+            // Définir le répertoire de destination
             $uploadDirectory = __DIR__ . DIRECTORY_SEPARATOR . 'files' . DIRECTORY_SEPARATOR;
             if (!file_exists($uploadDirectory)) {
-                mkdir($uploadDirectory, 0755, true); // Crée le dossier avec les droits de lecture/écriture
+                mkdir($uploadDirectory, 0755, true); // Créer le dossier si inexistant
             }
 
+            // Récupérer l'extension du fichier
             $fileInfo = new SplFileInfo($_FILES['fichier']['name']);
             $extension = $fileInfo->getExtension();
-            $nomFichierSecurise = preg_replace("/[^a-zA-Z0-9.]/", "_", $_POST['nom']); // Sécurisation du nom du fichier
-            $nouveauFichier = $nomFichierSecurise . '.' . $extension;
 
-            // Déplacement du fichier uploadé
-            if (move_uploaded_file($_FILES['fichier']['tmp_name'], $uploadDirectory . $nouveauFichier)) {
-                header('Location: index.php?type=success');
-                exit();
+            // Vérifier si l'extension est autorisée (PDF ou image)
+            if (in_array($extension, array('pdf', 'jpg', 'jpeg', 'png', 'gif'))) {
+                // Sécuriser le nom du fichier
+                $nomFichierSecurise = preg_replace("/[^a-zA-Z0-9.]/", "_", $_POST['nom']);
+                $nouveauFichier = $nomFichierSecurise . '.' . $extension;
+
+                // Déplacer le fichier vers le répertoire de destination
+                if (move_uploaded_file($_FILES['fichier']['tmp_name'], $uploadDirectory . $nouveauFichier)) {
+                    return true; // Succès de l'upload
+                } else {
+                    return false; // Erreur de déplacement du fichier
+                }
             } else {
-                // Erreur de déplacement du fichier
-                header('Location: index.php?type=error&code=4');
-                exit();
+                return false; // Extension non autorisée
             }
         } else {
-            // Erreur upload
-            header('Location: index.php?type=error&code=3');
-            exit();
+            return false; // Erreur d'upload
         }
     } else {
-        // Champs manquants
-        header('Location: index.php?type=error&code=2');
-        exit();
+        return false; // Champs manquants
     }
-} else {
-    // Accès non autorisé (pas via le formulaire)
-    header('Location: index.php?type=error&code=1');
+}
+
+// Fonction pour rediriger l'utilisateur vers une autre page
+function redirectTo($type, $code) {
+    header('Location: index.php?type=' . $type . '&code=' . $code);
     exit();
 }
+
+// Vérifier si le formulaire a été soumis
+if (isset($_POST['envoyer'])) {
+    // Appeler la fonction pour gérer l'upload
+    if (handleUpload()) {
+        redirectTo('success', ''); // Rediriger en cas de succès
+    } else {
+        redirectTo('error', '1'); // Rediriger en cas d'erreur
+    }
+} else {
+    redirectTo('error', '1'); // Rediriger si le formulaire n'a pas été soumis
+}
+?>
